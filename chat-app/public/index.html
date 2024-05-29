@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat App</title>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        #chat-container {
+            display: flex;
+            width: 900px;
+            border: 1px solid #ccc;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        #users, #groups {
+            width: 200px;
+            border-right: 1px solid #eee;
+            padding-right: 20px;
+            margin-right: 20px;
+        }
+        #users h3, #groups h3 {
+            margin-top: 0;
+        }
+        #messages {
+            flex: 1;
+            border: 1px solid #eee;
+            height: 300px;
+            overflow-y: scroll;
+            padding: 10px;
+            margin-bottom: 20px;
+        }
+        #message-form {
+            display: flex;
+        }
+        #message-form input {
+            flex: 1;
+            padding: 10px;
+            font-size: 16px;
+        }
+        #message-form button {
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+        #group-form {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        #group-form input {
+            flex: 1;
+            padding: 10px;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        #group-form button {
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="chat-container">
+    <div id="users">
+        <h3>Usuarios Conectados</h3>
+        <ul id="user-list" class="list-group"></ul>
+    </div>
+    <div id="groups">
+        <h3>Grupos</h3>
+        <ul id="group-list" class="list-group"></ul>
+    </div>
+    <div>
+        <form id="group-form">
+            <input type="text" id="group-name" placeholder="Nombre del Grupo" required class="form-control" />
+            <button class="btn btn-primary">Crear Grupo</button>
+        </form>
+        <form id="join-group-form">
+            <input type="text" id="join-group-name" placeholder="Nombre del Grupo" required class="form-control" />
+            <button class="btn btn-secondary">Unirse al Grupo</button>
+        </form>
+        <div id="messages" class="border"></div>
+        <form id="message-form">
+            <input type="text" id="message" autocomplete="off" placeholder="Escribe un mensaje..." class="form-control" />
+            <button class="btn btn-success">Enviar</button>
+        </form>
+    </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    const socket = io();
+
+    // Solicitar el nombre de usuario
+    const username = prompt("Por favor, introduce tu nombre:");
+    socket.emit('newUser', username);
+
+    const form = document.getElementById('message-form');
+    const input = document.getElementById('message');
+    const messages = document.getElementById('messages');
+    const userList = document.getElementById('user-list');
+    const groupList = document.getElementById('group-list');
+    const groupForm = document.getElementById('group-form');
+    const groupNameInput = document.getElementById('group-name');
+    const joinGroupForm = document.getElementById('join-group-form');
+    const joinGroupNameInput = document.getElementById('join-group-name');
+
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (input.value) {
+            socket.emit('groupMessage', { groupName: currentGroup, message: input.value });
+            input.value = '';
+        }
+    });
+
+    groupForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (groupNameInput.value) {
+            socket.emit('createGroup', groupNameInput.value);
+            groupNameInput.value = '';
+        }
+    });
+
+    joinGroupForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (joinGroupNameInput.value) {
+            socket.emit('joinGroup', joinGroupNameInput.value);
+            joinGroupNameInput.value = '';
+        }
+    });
+
+    socket.on('chatMessage', (msg) => {
+        const item = document.createElement('div');
+        item.textContent = `${msg.user}: ${msg.message}`;
+        messages.appendChild(item);
+        messages.scrollTop = messages.scrollHeight;
+    });
+
+    socket.on('updateUserList', (users) => {
+        userList.innerHTML = '';
+        users.forEach(user => {
+            const item = document.createElement('li');
+            item.textContent = user;
+            item.className = "list-group-item";
+            userList.appendChild(item);
+        });
+    });
+
+    socket.on('updateGroupList', (groups) => {
+        groupList.innerHTML = '';
+        for (const groupName in groups) {
+            const item = document.createElement('li');
+            item.textContent = `${groupName} (${groups[groupName].members.length} miembros)`;
+            item.className = "list-group-item";
+            groupList.appendChild(item);
+        }
+    });
+
+    socket.on('groupCreated', (groupName) => {
+        const item = document.createElement('div');
+        item.textContent = `Grupo creado: ${groupName}`;
+        messages.appendChild(item);
+        messages.scrollTop = messages.scrollHeight;
+        currentGroup = groupName;
+    });
+
+    socket.on('groupJoined', (groupName) => {
+        const item = document.createElement('div');
+        item.textContent = `Te has unido al grupo: ${groupName}`;
+        messages.appendChild(item);
+        messages.scrollTop = messages.scrollHeight;
+        currentGroup = groupName;
+    });
+
+    socket.on('groupMessage', (msg) => {
+        const item = document.createElement('div');
+        item.textContent = `${msg.user}: ${msg.message}`;
+        messages.appendChild(item);
+        messages.scrollTop = messages.scrollHeight;
+    });
+
+    socket.on('error', (error) => {
+        alert(error);
+    });
+
+    let currentGroup = null;
+</script>
+</body>
+</html>
